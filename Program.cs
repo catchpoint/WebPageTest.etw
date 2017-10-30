@@ -135,11 +135,13 @@ namespace wpt_etw
 
         private static void ThreadProc()
         {
-            HttpClient wptagent = new HttpClient();
             string done_file = AppDomain.CurrentDomain.BaseDirectory + "wpt-etw.done";
             Console.WriteLine("Forwarding ETW events to http://127.0.0.1:8888/");
             Console.WriteLine("To exit, hit ctrl-C or create the file " + done_file);
             int count = 0;
+            HttpClient wptagent = new HttpClient();
+            var content = new StringContent("wptagent.started", Encoding.UTF8, "application/json");
+            wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
             do
             {
                 Thread.Sleep(100);
@@ -154,7 +156,7 @@ namespace wpt_etw
 
                 if (buff.Length > 0)
                 {
-                    var content = new StringContent(buff, Encoding.UTF8, "application/json");
+                    content = new StringContent(buff, Encoding.UTF8, "application/json");
                     wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
                 }
 
