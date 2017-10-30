@@ -140,7 +140,7 @@ namespace wpt_etw
             Console.WriteLine("To exit, hit ctrl-C or create the file " + done_file);
             int count = 0;
             HttpClient wptagent = new HttpClient();
-            var content = new StringContent("wptagent.started", Encoding.UTF8, "application/json");
+            var content = new StringContent("{\"message\": \"wptagent.started\"}", Encoding.UTF8, "application/json");
             wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
             do
             {
