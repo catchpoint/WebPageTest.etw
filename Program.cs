@@ -6,8 +6,11 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace wpt_etw
@@ -49,11 +52,16 @@ namespace wpt_etw
             "Wininet_LookupConnection/Stop",
             "WININET_STREAM_DATA_INDICATED"
         };
+        static TraceEventSession session;
+        static bool must_exit = false;
+        private static Mutex mutex = new Mutex();
+        static string events = "";
+
 
         static void Main()
         {
             // create a real time user mode session
-            using (var session = new TraceEventSession("wpt-etw"))
+            using (session = new TraceEventSession("wpt-etw"))
             {
                 session.StopOnDispose = true;
                 // Set up Ctrl-C to stop the session
@@ -104,17 +112,72 @@ namespace wpt_etw
 
                         //evt["ascii"] = System.Text.Encoding.ASCII.GetString(data.EventData());
                         //evt["raw"] = data.EventData();
-                        string json = JsonConvert.SerializeObject(evt);
-                        Debug.WriteLine(json);
-                        Console.WriteLine(json);
+                        string json = JsonConvert.SerializeObject(evt) + "\n";
+                        mutex.WaitOne();
+                        events += json;
+                        mutex.ReleaseMutex();
+                        //Debug.WriteLine(json);
+                        //Console.WriteLine(json);
                     }
                 };
 
                 session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x30801308);
                 session.EnableProvider("Microsoft-Windows-WinINet");
 
+                must_exit = false;
+                var thread = new Thread(ThreadProc);
+                thread.Start();
                 session.Source.Process();   // Listen (forever) for events
+                must_exit = true;
+                thread.Join();
             }
+        }
+
+        private static void ThreadProc()
+        {
+            HttpClient wptagent = new HttpClient();
+            string done_file = AppDomain.CurrentDomain.BaseDirectory + "wpt-etw.done";
+            Console.WriteLine("Forwarding ETW events to http://127.0.0.1:8888/");
+            Console.WriteLine("To exit, hit ctrl-C or create the file " + done_file);
+            int count = 0;
+            do
+            {
+                Thread.Sleep(100);
+                string buff = "";
+                mutex.WaitOne();
+                if (events.Length > 0)
+                {
+                    buff = events;
+                    events = "";
+                }
+                mutex.ReleaseMutex();
+
+                if (buff.Length > 0)
+                {
+                    var content = new StringContent(buff, Encoding.UTF8, "application/json");
+                    wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
+                }
+
+                // Check to see if we need to exit every 1 second (10 loops through)
+                count++;
+                if (count >= 10)
+                {
+                    if (File.Exists(done_file))
+                    {
+                        try
+                        {
+                            File.Delete(done_file);
+                        }
+                        catch
+                        {
+                        }
+                        must_exit = true;
+                    }
+                    count = 0;
+                }
+            } while (!must_exit);
+            Console.WriteLine("Exiting...");
+            session.Stop();
         }
 
         /*
