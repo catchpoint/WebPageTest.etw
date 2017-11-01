@@ -69,56 +69,64 @@ namespace wpt_etw
 
                 session.Source.Dynamic.All += delegate (TraceEvent data)
                 {
-                    bool keep = false;
-                    if (data.ProviderName == "Microsoft-IE" &&
-                        IEEvents.Contains(data.EventName))
+                    try
                     {
-                        keep = true;
-                    }
-                    else if (data.ProviderName == "Microsoft-Windows-WinINet" &&
-                             WinInetEvents.Contains(data.EventName))
-                    {
-                        keep = true;
-                    }
-
-                    if (keep)
-                    {
-                        Dictionary<string, dynamic> evt = new Dictionary<string, dynamic>();
-                        evt["Provider"] = data.ProviderName;
-                        evt["Event"] = data.EventName;
-                        evt["ts"] = data.TimeStampRelativeMSec;
-                        if (data.ActivityID != Guid.Empty)
-                            evt["Activity"] = data.ActivityID;
-                        if (data.RelatedActivityID != Guid.Empty)
-                            evt["RelatedActivity"] = data.RelatedActivityID;
-                        if (data.ProcessID >= 0)
-                            evt["pid"] = data.ProcessID;
-                        if (data.ThreadID >= 0)
-                            evt["tid"] = data.ThreadID;
-                        if (data.PayloadNames.Count() > 0)
+                        bool keep = false;
+                        if (data.ProviderName == "Microsoft-IE" &&
+                            IEEvents.Contains(data.EventName))
                         {
-                            Dictionary<string, dynamic> values = new Dictionary<string, dynamic>();
-                            foreach (string name in data.PayloadNames)
-                            {
-                                values[name] = data.PayloadByName(name);
-                            }
-                            // Special-case a few events where teh default decoder doesn't work correctly
-                            if (data.ProviderName == "Microsoft-Windows-WinINet")
-                            {
-                                ExtractWinInetValues(data, ref values);
-                            }
-                            evt["data"] = values;
+                            keep = true;
+                        }
+                        else if (data.ProviderName == "Microsoft-Windows-WinINet" &&
+                                 WinInetEvents.Contains(data.EventName))
+                        {
+                            keep = true;
                         }
 
-                        //evt["ascii"] = System.Text.Encoding.ASCII.GetString(data.EventData());
-                        //evt["raw"] = data.EventData();
-                        string json = JsonConvert.SerializeObject(evt) + "\n";
-                        mutex.WaitOne();
-                        events += json;
-                        mutex.ReleaseMutex();
-                        //Debug.WriteLine(json);
-                        //Console.WriteLine(json);
+                        if (keep)
+                        {
+                            Dictionary<string, dynamic> evt = new Dictionary<string, dynamic>();
+                            evt["Provider"] = data.ProviderName;
+                            evt["Event"] = data.EventName;
+                            evt["ts"] = data.TimeStampRelativeMSec;
+                            if (data.ActivityID != Guid.Empty)
+                                evt["Activity"] = data.ActivityID;
+                            if (data.RelatedActivityID != Guid.Empty)
+                                evt["RelatedActivity"] = data.RelatedActivityID;
+                            if (data.ProcessID >= 0)
+                                evt["pid"] = data.ProcessID;
+                            if (data.ThreadID >= 0)
+                                evt["tid"] = data.ThreadID;
+                            if (data.PayloadNames.Count() > 0)
+                            {
+                                Dictionary<string, dynamic> values = new Dictionary<string, dynamic>();
+                                foreach (string name in data.PayloadNames)
+                                {
+                                    values[name] = data.PayloadByName(name);
+                                }
+                                // Special-case a few events where teh default decoder doesn't work correctly
+                                if (data.ProviderName == "Microsoft-Windows-WinINet")
+                                {
+                                    try
+                                    {
+                                        ExtractWinInetValues(data, ref values);
+                                    }
+                                    catch { }
+                                }
+                                evt["data"] = values;
+                            }
+
+                            //evt["ascii"] = System.Text.Encoding.ASCII.GetString(data.EventData());
+                            //evt["raw"] = data.EventData();
+                            string json = JsonConvert.SerializeObject(evt) + "\n";
+                            mutex.WaitOne();
+                            events += json;
+                            mutex.ReleaseMutex();
+                            //Debug.WriteLine(json);
+                            //Console.WriteLine(json);
+                        }
                     }
+                    catch { }
                 };
 
                 session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x30801308);
@@ -127,7 +135,11 @@ namespace wpt_etw
                 must_exit = false;
                 var thread = new Thread(ThreadProc);
                 thread.Start();
-                session.Source.Process();   // Listen (forever) for events
+                try
+                {
+                    session.Source.Process();   // Listen (forever) for events
+                }
+                catch { }
                 must_exit = true;
                 thread.Join();
             }
@@ -145,41 +157,49 @@ namespace wpt_etw
             do
             {
                 Thread.Sleep(100);
-                string buff = "";
-                mutex.WaitOne();
-                if (events.Length > 0)
+                try
                 {
-                    buff = events;
-                    events = "";
-                }
-                mutex.ReleaseMutex();
-
-                if (buff.Length > 0)
-                {
-                    content = new StringContent(buff, Encoding.UTF8, "application/json");
-                    wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
-                }
-
-                // Check to see if we need to exit every 1 second (10 loops through)
-                count++;
-                if (count >= 10)
-                {
-                    if (File.Exists(done_file))
+                    string buff = "";
+                    mutex.WaitOne();
+                    if (events.Length > 0)
                     {
-                        try
-                        {
-                            File.Delete(done_file);
-                        }
-                        catch
-                        {
-                        }
-                        must_exit = true;
+                        buff = events;
+                        events = "";
                     }
-                    count = 0;
+                    mutex.ReleaseMutex();
+
+                    if (buff.Length > 0)
+                    {
+                        content = new StringContent(buff, Encoding.UTF8, "application/json");
+                        wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
+                    }
+
+                    // Check to see if we need to exit every 1 second (10 loops through)
+                    count++;
+                    if (count >= 10)
+                    {
+                        if (File.Exists(done_file))
+                        {
+                            try
+                            {
+                                File.Delete(done_file);
+                            }
+                            catch
+                            {
+                            }
+                            must_exit = true;
+                        }
+                        count = 0;
+                    }
                 }
+                catch { }
             } while (!must_exit);
             Console.WriteLine("Exiting...");
-            session.Stop();
+            try
+            {
+                session.Stop();
+            }
+            catch { }
         }
 
         /*
