@@ -56,23 +56,46 @@ namespace wpt_etw
         static bool must_exit = false;
         private static Mutex mutex = new Mutex();
         static string events = "";
+        static string body_dir = "";
 
-
-        static void Main()
+        static void Main(string[] args)
         {
+            if (args.Length == 2 && args[0] == "--bodies" && System.IO.Directory.Exists(args[1]))
+                body_dir = args[1];
+
             // create a real time user mode session
             using (session = new TraceEventSession("wpt-etw"))
             {
                 session.StopOnDispose = true;
                 // Set up Ctrl-C to stop the session
-                Console.CancelKeyPress += (object s, ConsoleCancelEventArgs args) => session.Stop();
+                Console.CancelKeyPress += (object s, ConsoleCancelEventArgs cancel_args) => session.Stop();
 
                 session.Source.Dynamic.All += delegate (TraceEvent data)
                 {
                     try
                     {
                         bool keep = false;
-                        if (data.ProviderName == "Microsoft-IE" &&
+                        if (data.ProviderName == "Microsoft-Windows-WinINet-Capture")
+                        {
+                            if (data.ActivityID != Guid.Empty && data.EventName == "EventID(2004)")
+                            {
+                                var raw = data.PayloadByName("Payload") as byte[];
+                                if (raw != null && raw.Length > 0)
+                                {
+                                    string activity = data.ActivityID.ToString("D");
+                                    string path = body_dir + "\\" + activity;
+                                    try
+                                    {
+                                        using (var stream = new FileStream(path, FileMode.Append))
+                                        {
+                                            stream.Write(raw, 0, raw.Length);
+                                        }
+                                    }
+                                    catch { }
+                                }
+                            }
+                        }
+                        else if (data.ProviderName == "Microsoft-IE" &&
                             IEEvents.Contains(data.EventName))
                         {
                             keep = true;
@@ -90,7 +113,7 @@ namespace wpt_etw
                             evt["Event"] = data.EventName;
                             evt["ts"] = data.TimeStampRelativeMSec;
                             if (data.ActivityID != Guid.Empty)
-                                evt["Activity"] = data.ActivityID;
+                                evt["Activity"] = data.ActivityID.ToString("D");
                             if (data.RelatedActivityID != Guid.Empty)
                                 evt["RelatedActivity"] = data.RelatedActivityID;
                             if (data.ProcessID >= 0)
@@ -122,15 +145,17 @@ namespace wpt_etw
                             mutex.WaitOne();
                             events += json;
                             mutex.ReleaseMutex();
-                            //Debug.WriteLine(json);
-                            //Console.WriteLine(json);
+                            //Debug.WriteLine(json.Trim());
+                            //Console.WriteLine(json.Trim());
                         }
                     }
                     catch { }
                 };
 
-                session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x30801308);
+                if (body_dir.Length > 0)
+                    session.EnableProvider("Microsoft-Windows-WinInet-Capture");
                 session.EnableProvider("Microsoft-Windows-WinINet");
+                session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x30801308);
 
                 must_exit = false;
                 var thread = new Thread(ThreadProc);
@@ -153,7 +178,11 @@ namespace wpt_etw
             int count = 0;
             HttpClient wptagent = new HttpClient();
             var content = new StringContent("{\"message\": \"wptagent.started\"}", Encoding.UTF8, "application/json");
-            wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
+            try
+            {
+                var response = wptagent.PostAsync("http://127.0.0.1:8888/etw", content).Result;
+            }
+            catch { }
             do
             {
                 Thread.Sleep(100);
@@ -171,7 +200,11 @@ namespace wpt_etw
                     if (buff.Length > 0)
                     {
                         content = new StringContent(buff, Encoding.UTF8, "application/json");
-                        wptagent.PostAsync("http://127.0.0.1:8888/etw", content);
+                        try
+                        {
+                            var response = wptagent.PostAsync("http://127.0.0.1:8888/etw", content).Result;
+                        }
+                        catch { }
                     }
 
                     // Check to see if we need to exit every 1 second (10 loops through)
@@ -194,6 +227,7 @@ namespace wpt_etw
                 }
                 catch { }
             } while (!must_exit);
+            Debug.WriteLine("Exiting...");
             Console.WriteLine("Exiting...");
             try
             {
