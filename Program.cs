@@ -17,42 +17,45 @@ namespace wpt_etw
 {
     class Program
     {
-        static string[] IEEvents = {
-            "Mshtml_CWindow_SuperNavigate2/Start",
-            "Mshtml_BFCache",
-            "Mshtml_WebOCEvents_BeforeNavigate",
-            "Mshtml_CDoc_Navigation",
-            "Mshtml_WebOCEvents_DOMContentLoaded",
-            "Mshtml_WebOCEvents_DocumentComplete",
-            "Mshtml_WebOCEvents_NavigateComplete",
-            "Mshtml_CMarkup_LoadEvent_Start/Start",
-            "Mshtml_CMarkup_LoadEvent_Stop/Stop",
-            "Mshtml_CMarkup_DOMContentLoadedEvent_Start/Start",
-            "Mshtml_CMarkup_DOMContentLoadedEvent_Stop/Stop",
-            "Mshtml_NotifyGoesInteractive/Start"};
-        static string[] WinInetEvents = {
-            "WININET_DNS_QUERY/Start",
-            "WININET_DNS_QUERY/Stop",
-            "Wininet_Getaddrinfo/Start",
-            "Wininet_Getaddrinfo/Stop",
-            "Wininet_SocketConnect/Start",
-            "Wininet_SocketConnect/Stop",
-            "WININET_TCP_CONNECTION/Start",
-            "WININET_TCP_CONNECTION/Stop",
-            "WININET_TCP_CONNECTION/Fail",
-            "Wininet_Connect/Stop",
-            "WININET_HTTPS_NEGOTIATION/Start",
-            "WININET_HTTPS_NEGOTIATION/Stop",
-            "WININET_REQUEST_HEADER",
-            "WININET_RESPONSE_HEADER",
-            "Wininet_SendRequest/Start",
-            "Wininet_SendRequest/Stop",
-            "Wininet_SendRequest_Main",
-            "Wininet_ReadData",
-            "Wininet_UsageLogRequest",
-            "Wininet_LookupConnection/Stop",
-            "WININET_STREAM_DATA_INDICATED"
+        static Dictionary<String, int> IEEvents = new Dictionary<String, int>() {
+            { "Mshtml_CWindow_SuperNavigate2/Start", 70 },
+            { "Mshtml_BFCache", 574 },
+            { "Mshtml_WebOCEvents_BeforeNavigate", 730 },
+            { "Mshtml_CDoc_Navigation", 609 },
+            { "Mshtml_WebOCEvents_DOMContentLoaded", 739 },
+            { "Mshtml_WebOCEvents_DocumentComplete", 735 },
+            { "Mshtml_WebOCEvents_NavigateComplete", 732 },
+            { "Mshtml_CMarkup_LoadEvent_Start/Start", 9 },
+            { "Mshtml_CMarkup_LoadEvent_Stop/Stop", 10 },
+            { "Mshtml_CMarkup_DOMContentLoadedEvent_Start/Start", 7 },
+            { "Mshtml_CMarkup_DOMContentLoadedEvent_Stop/Stop", 8 },
+            { "Mshtml_NotifyGoesInteractive/Start", 57 }
         };
+
+        static Dictionary<String, int> WinInetEvents = new Dictionary<String, int>() {
+            { "WININET_DNS_QUERY/Start", 304 },
+            { "WININET_DNS_QUERY/Stop", 305 },
+            { "Wininet_Getaddrinfo/Start", 1051 },
+            { "Wininet_Getaddrinfo/Stop", 1052 },
+            { "Wininet_SocketConnect/Start", 1059 },
+            { "Wininet_SocketConnect/Stop", 1060 },
+            { "WININET_TCP_CONNECTION/Start", 301 },
+            { "WININET_TCP_CONNECTION/Stop", 303 },
+            { "WININET_TCP_CONNECTION/Fail", 302 },
+            { "Wininet_Connect/Stop", 1046 },
+            { "WININET_HTTPS_NEGOTIATION/Start", 701},
+            { "WININET_HTTPS_NEGOTIATION/Stop", 702 },
+            { "WININET_REQUEST_HEADER", 546 },
+            { "WININET_RESPONSE_HEADER", 211 },
+            { "Wininet_SendRequest/Start", 1007 },
+            { "Wininet_SendRequest/Stop", 1008 },
+            { "Wininet_SendRequest_Main", 1031 },
+            { "Wininet_ReadData", 1037 },
+            { "Wininet_UsageLogRequest", 1057 },
+            { "Wininet_LookupConnection/Stop", 1048 },
+            { "WININET_STREAM_DATA_INDICATED", 1064 }
+        };
+
         static TraceEventSession session;
         static bool must_exit = false;
         private static Mutex mutex = new Mutex();
@@ -97,12 +100,12 @@ namespace wpt_etw
                             }
                         }
                         else if (data.ProviderName == "Microsoft-IE" &&
-                            IEEvents.Contains(data.EventName))
+                            IEEvents.ContainsKey(data.EventName))
                         {
                             keep = true;
                         }
                         else if (data.ProviderName == "Microsoft-Windows-WinINet" &&
-                                 WinInetEvents.Contains(data.EventName))
+                                 WinInetEvents.ContainsKey(data.EventName))
                         {
                             keep = true;
                         }
@@ -159,8 +162,16 @@ namespace wpt_etw
 
                 if (body_dir.Length > 0)
                     session.EnableProvider("Microsoft-Windows-WinInet-Capture");
-                session.EnableProvider("Microsoft-Windows-WinINet");
-                session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x30801308);
+                var WinInetProviderFilterOptions = new TraceEventProviderOptions()
+                {
+                    EventIDsToEnable = new List<int>(WinInetEvents.Values)
+                };
+                session.EnableProvider("Microsoft-Windows-WinINet", TraceEventLevel.Informational, ulong.MaxValue, WinInetProviderFilterOptions);
+                var IEProviderFilterOptions = new TraceEventProviderOptions()
+                {
+                    EventIDsToEnable = new List<int>(IEEvents.Values)
+                };
+                session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x4001302, IEProviderFilterOptions);
 
                 must_exit = false;
                 var thread = new Thread(ThreadProc);
