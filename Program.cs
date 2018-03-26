@@ -61,11 +61,23 @@ namespace wpt_etw
         private static Mutex mutex = new Mutex();
         static string events = "";
         static string body_dir = "";
+        static Dictionary<string, CustomProvider> customProviders = new Dictionary<string, CustomProvider>();
+        static string customProvidersConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @".\customProviders.json");
 
         static void Main(string[] args)
         {
             if (args.Length == 2 && args[0] == "--bodies" && System.IO.Directory.Exists(args[1]))
                 body_dir = args[1];
+
+            // read settings for custom ETW providers            
+            if (File.Exists(customProvidersConfigPath))
+            {
+                try
+                {
+                    customProviders = JsonConvert.DeserializeObject<Dictionary<string, CustomProvider>>(File.ReadAllText(customProvidersConfigPath));
+                }
+                catch { }
+            }
 
             // create a real time user mode session
             using (session = new TraceEventSession("wpt-etw"))
@@ -106,6 +118,11 @@ namespace wpt_etw
                         }
                         else if (data.ProviderName == "Microsoft-Windows-WinINet" &&
                                  WinInetEvents.ContainsKey(data.EventName))
+                        {
+                            keep = true;
+                        }
+                        else if (customProviders.ContainsKey(data.ProviderName) &&
+                                customProviders[data.ProviderName].EventNames.Contains(data.EventName))
                         {
                             keep = true;
                         }
@@ -162,16 +179,34 @@ namespace wpt_etw
 
                 if (body_dir.Length > 0)
                     session.EnableProvider("Microsoft-Windows-WinInet-Capture");
+
                 var WinInetProviderFilterOptions = new TraceEventProviderOptions()
                 {
                     EventIDsToEnable = new List<int>(WinInetEvents.Values)
                 };
                 session.EnableProvider("Microsoft-Windows-WinINet", TraceEventLevel.Informational, ulong.MaxValue, WinInetProviderFilterOptions);
+
                 var IEProviderFilterOptions = new TraceEventProviderOptions()
                 {
                     EventIDsToEnable = new List<int>(IEEvents.Values)
                 };
                 session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x4001302, IEProviderFilterOptions);
+
+                if (customProviders.Count > 0)
+                {
+                    foreach (var provider in customProviders)
+                    {
+                        var customProviderFilterOptions = new TraceEventProviderOptions()
+                        {
+                            EventIDsToEnable = new List<int>(provider.Value.EventIDs)
+                        };
+
+                        session.EnableProvider(provider.Key,
+                                            (TraceEventLevel)provider.Value.Verbosity,
+                                            provider.Value.Filter,
+                                            customProviderFilterOptions);
+                    }
+                }
 
                 must_exit = false;
                 var thread = new Thread(ThreadProc);
