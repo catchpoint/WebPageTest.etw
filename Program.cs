@@ -153,7 +153,7 @@ namespace wpt_etw
                                 {
                                     try
                                     {
-                                        ExtractWinInetValues(data, ref values);
+                                        //ExtractWinInetValues(data, ref values);
                                     }
                                     catch { }
                                 }
