@@ -55,20 +55,20 @@ namespace wpt_etw
             { "Wininet_LookupConnection/Stop", 1048 },
             { "WININET_STREAM_DATA_INDICATED", 1064 }
         };
-        
+
         static TraceEventSession session;
         static bool must_exit = false;
-        private static Mutex mutex = new Mutex();            
+        private static Mutex mutex = new Mutex();
         static StringBuilder events = new StringBuilder(2000000);
         static string body_dir = "";
         static Dictionary<string, CustomProvider> customProviders = new Dictionary<string, CustomProvider>();
-        static string customProvidersConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @".\customProviders.json");        
+        static string customProvidersConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @".\customProviders.json");
 
         static void Main(string[] args)
         {
             if (args.Length == 2 && args[0] == "--bodies" && System.IO.Directory.Exists(args[1]))
                 body_dir = args[1];
-            
+
             // read settings for custom ETW providers            
             if (File.Exists(customProvidersConfigPath))
             {
@@ -234,13 +234,13 @@ namespace wpt_etw
                     mutex.WaitOne();
                     if (events.Length > 0)
                     {
-                        buff = events.ToString();                        
+                        buff = events.ToString();
                         events.Clear();
                     }
                     mutex.ReleaseMutex();
 
                     if (buff.Length > 0)
-                    {                        
+                    {
                         content = new StringContent(buff, Encoding.UTF8, "application/json");
                         try
                         {
