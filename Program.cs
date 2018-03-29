@@ -55,8 +55,7 @@ namespace wpt_etw
             { "Wininet_LookupConnection/Stop", 1048 },
             { "WININET_STREAM_DATA_INDICATED", 1064 }
         };
-
-        //static Stopwatch stopwatch = new Stopwatch();
+        
         static TraceEventSession session;
         static bool must_exit = false;
         private static Mutex mutex = new Mutex();            
@@ -235,28 +234,14 @@ namespace wpt_etw
                     mutex.WaitOne();
                     if (events.Length > 0)
                     {
-                        //Console.WriteLine("\nevents.Length: {0}, events.Capacity: {1}", events.Length, events.Capacity);                        
-                        //stopwatch.Start();
-                        buff = events.ToString();
-                        //stopwatch.Stop();
-                        //Console.WriteLine("    ToString took: {0} ticks", stopwatch.ElapsedTicks);
-                        //stopwatch.Reset();
-
-                        //stopwatch.Start();
+                        buff = events.ToString();                        
                         events.Clear();
-                        //stopwatch.Stop();                        
-                        //Console.WriteLine("    StringBuilder clear took: {0} ticks", stopwatch.ElapsedTicks);
-                        //stopwatch.Reset();
                     }
                     mutex.ReleaseMutex();
 
                     if (buff.Length > 0)
-                    {
-                        //stopwatch.Start();
+                    {                        
                         content = new StringContent(buff, Encoding.UTF8, "application/json");
-                        //stopwatch.Stop();
-                        //Console.WriteLine("    StringContent allocation took: {0} ticks", stopwatch.ElapsedTicks);
-                        //stopwatch.Reset();
                         try
                         {
                             var response = wptagent.PostAsync("http://127.0.0.1:8888/etw", content).Result;
