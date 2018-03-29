@@ -56,19 +56,20 @@ namespace wpt_etw
             { "WININET_STREAM_DATA_INDICATED", 1064 }
         };
 
+        //static Stopwatch stopwatch = new Stopwatch();
         static TraceEventSession session;
         static bool must_exit = false;
-        private static Mutex mutex = new Mutex();
-        static string events = "";
+        private static Mutex mutex = new Mutex();            
+        static StringBuilder events = new StringBuilder(2000000);
         static string body_dir = "";
         static Dictionary<string, CustomProvider> customProviders = new Dictionary<string, CustomProvider>();
-        static string customProvidersConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @".\customProviders.json");
+        static string customProvidersConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @".\customProviders.json");        
 
         static void Main(string[] args)
         {
             if (args.Length == 2 && args[0] == "--bodies" && System.IO.Directory.Exists(args[1]))
                 body_dir = args[1];
-
+            
             // read settings for custom ETW providers            
             if (File.Exists(customProvidersConfigPath))
             {
@@ -158,7 +159,7 @@ namespace wpt_etw
                             if (json.IndexOf("http://127.0.0.1:8888") == -1)
                             {
                                 mutex.WaitOne();
-                                events += json;
+                                events.Append(json);
                                 mutex.ReleaseMutex();
                             }
                             //Debug.WriteLine(json.Trim());
@@ -234,14 +235,28 @@ namespace wpt_etw
                     mutex.WaitOne();
                     if (events.Length > 0)
                     {
-                        buff = events;
-                        events = "";
+                        //Console.WriteLine("\nevents.Length: {0}, events.Capacity: {1}", events.Length, events.Capacity);                        
+                        //stopwatch.Start();
+                        buff = events.ToString();
+                        //stopwatch.Stop();
+                        //Console.WriteLine("    ToString took: {0} ticks", stopwatch.ElapsedTicks);
+                        //stopwatch.Reset();
+
+                        //stopwatch.Start();
+                        events.Clear();
+                        //stopwatch.Stop();                        
+                        //Console.WriteLine("    StringBuilder clear took: {0} ticks", stopwatch.ElapsedTicks);
+                        //stopwatch.Reset();
                     }
                     mutex.ReleaseMutex();
 
                     if (buff.Length > 0)
                     {
+                        //stopwatch.Start();
                         content = new StringContent(buff, Encoding.UTF8, "application/json");
+                        //stopwatch.Stop();
+                        //Console.WriteLine("    StringContent allocation took: {0} ticks", stopwatch.ElapsedTicks);
+                        //stopwatch.Reset();
                         try
                         {
                             var response = wptagent.PostAsync("http://127.0.0.1:8888/etw", content).Result;
