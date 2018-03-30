@@ -59,7 +59,7 @@ namespace wpt_etw
         static TraceEventSession session;
         static bool must_exit = false;
         private static Mutex mutex = new Mutex();
-        static string events = "";
+        static StringBuilder events = new StringBuilder(2000000);
         static string body_dir = "";
         static Dictionary<string, CustomProvider> customProviders = new Dictionary<string, CustomProvider>();
         static string customProvidersConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @".\customProviders.json");
@@ -158,7 +158,7 @@ namespace wpt_etw
                             if (json.IndexOf("http://127.0.0.1:8888") == -1)
                             {
                                 mutex.WaitOne();
-                                events += json;
+                                events.Append(json);
                                 mutex.ReleaseMutex();
                             }
                             //Debug.WriteLine(json.Trim());
@@ -234,8 +234,8 @@ namespace wpt_etw
                     mutex.WaitOne();
                     if (events.Length > 0)
                     {
-                        buff = events;
-                        events = "";
+                        buff = events.ToString();
+                        events.Clear();
                     }
                     mutex.ReleaseMutex();
 
