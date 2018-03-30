@@ -158,7 +158,7 @@ namespace wpt_etw
                             if (json.IndexOf("http://127.0.0.1:8888") == -1)
                             {
                                 mutex.WaitOne();
-                                events.Append(json).Append("\n");                                
+                                events.Append(json).Append("\n");
                                 mutex.ReleaseMutex();
                             }
                             //Debug.WriteLine(json.Trim());
