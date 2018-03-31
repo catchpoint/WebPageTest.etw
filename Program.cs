@@ -154,13 +154,9 @@ namespace wpt_etw
                             //evt["ascii"] = System.Text.Encoding.ASCII.GetString(data.EventData());
                             //evt["raw"] = data.EventData();
                             string json = JsonConvert.SerializeObject(evt);
-                            // Throw out anything that is for the local server on http://127.0.0.1:8888
-                            if (json.IndexOf("http://127.0.0.1:8888") == -1)
-                            {
-                                mutex.WaitOne();
-                                events.Append(json).Append("\n");
-                                mutex.ReleaseMutex();
-                            }
+                            mutex.WaitOne();
+                            events.Append(json).Append("\n");
+                            mutex.ReleaseMutex();
                             //Debug.WriteLine(json.Trim());
                             //Console.WriteLine(json.Trim());
                         }
