@@ -79,6 +79,10 @@ namespace wpt_etw
                 catch { }
             }
 
+            // perf optimization - warm up the Json serializer to avoid a big perf hit serializing the first event while the test is running
+            // reduces the observer effect of the exe            
+            var serializedWinInetEvents = JsonConvert.SerializeObject(WinInetEvents);            
+
             // create a real time user mode session
             using (session = new TraceEventSession("wpt-etw"))
             {
