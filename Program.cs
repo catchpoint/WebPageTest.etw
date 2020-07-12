@@ -17,43 +17,43 @@ namespace wpt_etw
 {
     class Program
     {
-        static Dictionary<String, int> IEEvents = new Dictionary<String, int>() {
-            { "Mshtml_CWindow_SuperNavigate2/Start", 70 },
-            { "Mshtml_BFCache", 574 },
-            { "Mshtml_WebOCEvents_BeforeNavigate", 730 },
-            { "Mshtml_CDoc_Navigation", 609 },
-            { "Mshtml_WebOCEvents_DOMContentLoaded", 739 },
-            { "Mshtml_WebOCEvents_DocumentComplete", 735 },
-            { "Mshtml_WebOCEvents_NavigateComplete", 732 },
-            { "Mshtml_CMarkup_LoadEvent_Start/Start", 9 },
-            { "Mshtml_CMarkup_LoadEvent_Stop/Stop", 10 },
-            { "Mshtml_CMarkup_DOMContentLoadedEvent_Start/Start", 7 },
-            { "Mshtml_CMarkup_DOMContentLoadedEvent_Stop/Stop", 8 },
-            { "Mshtml_NotifyGoesInteractive/Start", 57 }
+        static Dictionary<int, String> IEEvents = new Dictionary<int, String>() {
+            { 70, "Mshtml_CWindow_SuperNavigate2/Start" },
+            { 574, "Mshtml_BFCache"},
+            { 730, "Mshtml_WebOCEvents_BeforeNavigate" },
+            { 609, "Mshtml_CDoc_Navigation"},
+            { 739, "Mshtml_WebOCEvents_DOMContentLoaded" },
+            { 735, "Mshtml_WebOCEvents_DocumentComplete" },
+            { 732, "Mshtml_WebOCEvents_NavigateComplete" },
+            { 9, "Mshtml_CMarkup_LoadEvent_Start/Start" },
+            { 10, "Mshtml_CMarkup_LoadEvent_Stop/Stop" },
+            { 7, "Mshtml_CMarkup_DOMContentLoadedEvent_Start/Start" },
+            { 8, "Mshtml_CMarkup_DOMContentLoadedEvent_Stop/Stop" },
+            { 57, "Mshtml_NotifyGoesInteractive/Start" }
         };
 
-        static Dictionary<String, int> WinInetEvents = new Dictionary<String, int>() {
-            { "WININET_DNS_QUERY/Start", 304 },
-            { "WININET_DNS_QUERY/Stop", 305 },
-            { "Wininet_Getaddrinfo/Start", 1051 },
-            { "Wininet_Getaddrinfo/Stop", 1052 },
-            { "Wininet_SocketConnect/Start", 1059 },
-            { "Wininet_SocketConnect/Stop", 1060 },
-            { "WININET_TCP_CONNECTION/Start", 301 },
-            { "WININET_TCP_CONNECTION/Stop", 303 },
-            { "WININET_TCP_CONNECTION/Fail", 302 },
-            { "Wininet_Connect/Stop", 1046 },
-            { "WININET_HTTPS_NEGOTIATION/Start", 701},
-            { "WININET_HTTPS_NEGOTIATION/Stop", 702 },
-            { "WININET_REQUEST_HEADER", 546 },
-            { "WININET_RESPONSE_HEADER", 211 },
-            { "Wininet_SendRequest/Start", 1007 },
-            { "Wininet_SendRequest/Stop", 1008 },
-            { "Wininet_SendRequest_Main", 1031 },
-            { "Wininet_ReadData", 1037 },
-            { "Wininet_UsageLogRequest", 1057 },
-            { "Wininet_LookupConnection/Stop", 1048 },
-            { "WININET_STREAM_DATA_INDICATED", 1064 }
+        static Dictionary<int, String> WinInetEvents = new Dictionary<int, String>() {
+            { 304, "WININET_DNS_QUERY/Start" },
+            { 305, "WININET_DNS_QUERY/Stop" },
+            { 1051, "Wininet_Getaddrinfo/Start" },
+            { 1052, "Wininet_Getaddrinfo/Stop" },
+            { 1059, "Wininet_SocketConnect/Start" },
+            { 1060, "Wininet_SocketConnect/Stop" },
+            { 301, "WININET_TCP_CONNECTION/Start" },
+            { 303, "WININET_TCP_CONNECTION/Stop" },
+            { 302, "WININET_TCP_CONNECTION/Fail" },
+            { 1046, "Wininet_Connect/Stop" },
+            { 701, "WININET_HTTPS_NEGOTIATION/Start"},
+            { 702, "WININET_HTTPS_NEGOTIATION/Stop" },
+            { 546, "WININET_REQUEST_HEADER" },
+            { 211, "WININET_RESPONSE_HEADER" },
+            { 1007, "Wininet_SendRequest/Start" },
+            { 1008, "Wininet_SendRequest/Stop" },
+            { 1031, "Wininet_SendRequest_Main" },
+            { 1037, "Wininet_ReadData" },
+            { 1057, "Wininet_UsageLogRequest" },
+            { 1048, "Wininet_LookupConnection/Stop" },
+            { 1064, "WININET_STREAM_DATA_INDICATED" }
         };
 
         static TraceEventSession session;
@@ -96,6 +96,8 @@ namespace wpt_etw
                 {
                     try
                     {
+                        int eventId = (int)data.ID;
+                        string eventName = null;
                         bool keep = false;
                         if (data.ProviderName == "Microsoft-Windows-WinINet-Capture")
                         {
@@ -120,14 +122,16 @@ namespace wpt_etw
                             }
                         }
                         else if (data.ProviderName == "Microsoft-IE" &&
-                            IEEvents.ContainsKey(data.EventName))
+                            IEEvents.ContainsKey(eventId))
                         {
                             keep = true;
+                            eventName = IEEvents[eventId];
                         }
                         else if (data.ProviderName == "Microsoft-Windows-WinINet" &&
-                                 WinInetEvents.ContainsKey(data.EventName))
+                                 WinInetEvents.ContainsKey(eventId))
                         {
                             keep = true;
+                            eventName = WinInetEvents[eventId];
                         }
                         else if (customProviders.ContainsKey(data.ProviderName) &&
                             ( customProviders[data.ProviderName].EventNames == null || 
@@ -141,8 +145,8 @@ namespace wpt_etw
                         {
                             Dictionary<string, dynamic> evt = new Dictionary<string, dynamic>();
                             evt["Provider"] = data.ProviderName;
-                            evt["Event"] = data.EventName;
-                            evt["EID"] = (int)data.ID;
+                            evt["Event"] = eventName == null ? data.EventName : eventName;
+                            evt["EID"] = eventId;
                             evt["ts"] = data.TimeStampRelativeMSec;
                             if (data.ActivityID != Guid.Empty)
                                 evt["Activity"] = data.ActivityID.ToString("D");
@@ -182,13 +186,13 @@ namespace wpt_etw
 
                 var WinInetProviderFilterOptions = new TraceEventProviderOptions()
                 {
-                    EventIDsToEnable = new List<int>(WinInetEvents.Values)
+                    EventIDsToEnable = new List<int>(WinInetEvents.Keys)
                 };
                 session.EnableProvider("Microsoft-Windows-WinINet", TraceEventLevel.Informational, ulong.MaxValue, WinInetProviderFilterOptions);
 
                 var IEProviderFilterOptions = new TraceEventProviderOptions()
                 {
-                    EventIDsToEnable = new List<int>(IEEvents.Values)
+                    EventIDsToEnable = new List<int>(IEEvents.Keys)
                 };
                 session.EnableProvider("Microsoft-IE", TraceEventLevel.Informational, 0x4001302, IEProviderFilterOptions);
 
