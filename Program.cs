@@ -76,7 +76,9 @@ namespace wpt_etw
                 {
                     customProviders = JsonConvert.DeserializeObject<Dictionary<string, CustomProvider>>(File.ReadAllText(customProvidersConfigPath));
                 }
-                catch { }
+                catch (Exception e) {
+                    Console.WriteLine("{0} Exception caught.", e);
+                }
             }
 
             // perf optimization - warm up the Json serializer to avoid a big perf hit serializing the first event while the test is running
@@ -111,7 +113,9 @@ namespace wpt_etw
                                             stream.Write(raw, 0, raw.Length);
                                         }
                                     }
-                                    catch { }
+                                    catch (Exception e) {
+                                        Console.WriteLine("{0} Exception caught.", e);
+                                    }
                                 }
                             }
                         }
@@ -138,6 +142,7 @@ namespace wpt_etw
                             Dictionary<string, dynamic> evt = new Dictionary<string, dynamic>();
                             evt["Provider"] = data.ProviderName;
                             evt["Event"] = data.EventName;
+                            evt["EID"] = (int)data.ID;
                             evt["ts"] = data.TimeStampRelativeMSec;
                             if (data.ActivityID != Guid.Empty)
                                 evt["Activity"] = data.ActivityID.ToString("D");
@@ -167,7 +172,9 @@ namespace wpt_etw
                             //Console.WriteLine(json.Trim());
                         }
                     }
-                    catch { }
+                    catch (Exception e1) {
+                        Console.WriteLine("{0} Exception caught.", e1);
+                    }
                 };
 
                 if (body_dir.Length > 0)
@@ -251,7 +258,9 @@ namespace wpt_etw
                         {
                             var response = wptagent.PostAsync("http://127.0.0.1:8888/etw", content).Result;
                         }
-                        catch { }
+                        catch (Exception e) {
+                           Console.WriteLine("{0} Exception caught.", e);
+                        }
                     }
 
                     // Check to see if we need to exit every 1 second (10 loops through)
@@ -272,7 +281,9 @@ namespace wpt_etw
                         count = 0;
                     }
                 }
-                catch { }
+                catch (Exception e1) {
+                   Console.WriteLine("{0} Exception caught.", e1);
+                }
             } while (!must_exit);
             Debug.WriteLine("Exiting...");
             Console.WriteLine("Exiting...");
@@ -280,7 +291,9 @@ namespace wpt_etw
             {
                 session.Stop();
             }
-            catch { }
+            catch (Exception e) {
+               Console.WriteLine("{0} Exception caught.", e);
+            }
         }
     }
 }
