@@ -126,7 +126,9 @@ namespace wpt_etw
                             keep = true;
                         }
                         else if (customProviders.ContainsKey(data.ProviderName) &&
-                                customProviders[data.ProviderName].EventNames.Contains(data.EventName))
+                            ( customProviders[data.ProviderName].EventNames == null || 
+                             customProviders[data.ProviderName].EventNames.Count() < 1 ||
+                             customProviders[data.ProviderName].EventNames.Contains(data.EventName)))
                         {
                             keep = true;
                         }
@@ -187,6 +189,9 @@ namespace wpt_etw
                 {
                     foreach (var provider in customProviders)
                     {
+                        if (provider.Value.EventIDs == null || provider.Value.EventIDs.Count() < 1) {
+                            continue;
+                        }
                         var customProviderFilterOptions = new TraceEventProviderOptions()
                         {
                             EventIDsToEnable = new List<int>(provider.Value.EventIDs)
