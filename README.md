@@ -1,2 +1,2 @@
 # wpt-etw
-Windows ETW watcher for wptagent
+Windows ETW watcher for wptagent.
